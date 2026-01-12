@@ -1,9 +1,3 @@
-type LanguageDef = {
-  id: string;
-  name: string;
-  commands: Record<string, { op: string; delta?: number }>;
-};
-
 export class LanguageRegistry {
   private static languages = new Map<string, LanguageDef>();
 
