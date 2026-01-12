@@ -1,87 +1,38 @@
-import { LanguageRegistry } from "../language/LanguageRegistry";
+import { LanguageRegistry } from "./LanguageRegistry.js";
 
-/**
- * @typedef {Object} Token
- * @property {string} op
- * @property {number=} delta
- * @property {number=} jump
- */
-
-/**
- * @typedef {Object} VMError
- * @property {string} message
- * @property {number} ip
- */
-
-/**
- * @typedef {Object} TokenizeResult
- * @property {Token[]} tokens
- * @property {VMError=} error
- * @property {Array=} warnings
- */
-
-/**
- * tokenizeNukuDialect
- * - 命令抽出
- * - LOOP_START / LOOP_END のジャンプテーブル構築
- * - unmatched loop を tokenize error として返す
- */
 export function tokenizeNukuDialect(src, langId = "nuku") {
   const lang = LanguageRegistry.get(langId);
-
-  /** @type {Token[]} */
   const tokens = [];
 
-  /** @type {number[]} */
-  const loopStack = [];
-
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
+  for (const ch of src) {
     const cmd = lang.commands[ch];
     if (!cmd) continue;
 
-    const token = {
+    tokens.push({
       op: cmd.op,
       delta: cmd.delta,
-    };
+      char: ch
+    });
+  }
 
-    const ip = tokens.length;
-
-    // LOOP_START
-    if (token.op === "LOOP_START") {
-      loopStack.push(ip);
-    }
-
-    // LOOP_END
-    if (token.op === "LOOP_END") {
-      const startIp = loopStack.pop();
-      if (startIp == null) {
-        return {
-          tokens,
-          error: {
-            message: "Unmatched LOOP_END",
-            ip,
-          },
-        };
+  // ジャンプテーブル構築
+  const loopStack = [];
+  tokens.forEach((tok, i) => {
+    if (tok.op === "LOOP_START") loopStack.push(i);
+    if (tok.op === "LOOP_END") {
+      if (loopStack.length === 0) {
+        tok.error = "unmatched loop";
+      } else {
+        const start = loopStack.pop();
+        tok.jump = start;
+        tokens[start].jump = i;
       }
-      token.jump = startIp;
-      tokens[startIp].jump = ip;
     }
+  });
 
-    tokens.push(token);
-  }
-
-  // unmatched LOOP_START
   if (loopStack.length > 0) {
-    const ip = loopStack.pop();
-    return {
-      tokens,
-      error: {
-        message: "Unmatched LOOP_START",
-        ip,
-      },
-    };
+    loopStack.forEach(i => (tokens[i].error = "unmatched loop"));
   }
 
-  return { tokens };
+  return tokens;
 }
