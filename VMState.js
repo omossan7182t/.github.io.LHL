@@ -6,13 +6,35 @@ export class VMState {
 
   constructor(tokens) {
     this.tokens = tokens;
+    this.buildJumpTable();
+  }
+
+  buildJumpTable() {
+    const stack = [];
+
+    for (let i = 0; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+
+      if (token.op === "LOOP_START") {
+        stack.push(i);
+      } else if (token.op === "LOOP_END") {
+        if (stack.length === 0) {
+          throw new Error(`Unmatched LOOP_END at ip=${i}`);
+        }
+        const start = stack.pop();
+        this.tokens[start].jump = i;
+        token.jump = start;
+      }
+    }
+
+    if (stack.length > 0) {
+      throw new Error("Unmatched LOOP_START");
+    }
   }
 
   step() {
     const token = this.tokens[this.ip];
-    if (!token) {
-      return "END";
-    }
+    if (!token) return "END";
 
     switch (token.op) {
       case "ADD":
@@ -25,6 +47,18 @@ export class VMState {
 
       case "OUTPUT":
         console.log(String.fromCharCode(this.memory[this.ptr]));
+        break;
+
+      case "LOOP_START":
+        if (this.memory[this.ptr] === 0) {
+          this.ip = token.jump;
+        }
+        break;
+
+      case "LOOP_END":
+        if (this.memory[this.ptr] !== 0) {
+          this.ip = token.jump;
+        }
         break;
     }
 
