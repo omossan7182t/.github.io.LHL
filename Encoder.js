@@ -1,138 +1,58 @@
-// Encoder.js
-// UiLang Encoder
-// tokenize 結果 → VM 実行用メモリ（code point 配列）に変換する
+/**
+ * Encoder
+ *
+ * AST（token 配列）を target language 向け文字列に変換する
+ *
+ * 前提：
+ * - number literal は token.type === "number"
+ * - command は token.type === "command"
+ * - negative number は未対応（MVP）
+ */
 
 export class Encoder {
-  constructor(languageRegistry) {
-    this.lang = languageRegistry;
+  constructor(strategy) {
+    this.strategy = strategy;
   }
 
   /**
-   * エントリポイント
-   * @param {TokenizeResult} tokenizeResult
-   * @returns {EncodeResult}
+   * @param {Array} tokens
+   * @returns {string}
    */
-  encode(tokenizeResult) {
-    const memory = [];
-    const sourceMap = []; // memory index -> token index
-
-    const tokens = tokenizeResult.tokens;
+  encode(tokens) {
+    let out = "";
 
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
 
-      if (this._shouldSkip(token)) {
-        continue;
+      switch (token.type) {
+        case "number":
+          out += this.encodeNumber(token.value);
+          break;
+
+        case "command":
+          out += this.encodeCommand(token);
+          break;
+
+        default:
+          throw new Error(`Unknown token type: ${token.type}`);
       }
-
-      const beforeLen = memory.length;
-
-      this._encodeToken(token, memory);
-
-      const afterLen = memory.length;
-      for (let ip = beforeLen; ip < afterLen; ip++) {
-        sourceMap[ip] = i;
-      }
     }
 
-    return {
-      memory,
-      sourceMap,
-      memorySize: memory.length
-    };
+    return out;
   }
 
-  // -----------------------------------------
-  // 内部処理
-  // -----------------------------------------
-
-  _shouldSkip(token) {
-    switch (token.type) {
-      case 'whitespace':
-      case 'comment':
-        return true;
-      default:
-        return false;
+  encodeNumber(value) {
+    if (!Number.isInteger(value)) {
+      throw new Error(`number literal must be integer: ${value}`);
     }
+    if (value < 0) {
+      throw new Error(`negative number is not supported: ${value}`);
+    }
+
+    return this.strategy.encodeNumber(value);
   }
 
-  _encodeToken(token, memory) {
-    switch (token.type) {
-      case 'command':
-        this._encodeCommand(token, memory);
-        break;
-
-      case 'number':
-        this._encodeNumberLiteral(token, memory);
-        break;
-
-      case 'char':
-        this._encodeChar(token, memory);
-        break;
-
-      default:
-        throw new Error(
-          `Encoder: unsupported token type "${token.type}" at ${token.pos}`
-        );
-    }
-  }
-
-  // -----------------------------------------
-  // token type 別処理
-  // -----------------------------------------
-
-  _encodeCommand(token, memory) {
-    const cmd = this.lang.getCommand(token.value);
-    if (!cmd) {
-      throw new Error(
-        `Encoder: unknown command "${token.value}" at ${token.pos}`
-      );
-    }
-
-    // command は opcode を 1 cell 消費
-    memory.push(cmd.opcode);
-  }
-
-  _encodeNumberLiteral(token, memory) {
-    const value = this._parseNumber(token.value);
-
-    if (!Number.isSafeInteger(value)) {
-      throw new Error(
-        `Encoder: invalid number literal "${token.value}" at ${token.pos}`
-      );
-    }
-
-    memory.push(value);
-  }
-
-  _encodeChar(token, memory) {
-    // 1 文字 = UTF-16 code point
-    // UiLang では「そのまま数値」として扱う
-    const cp = token.value.codePointAt(0);
-    memory.push(cp);
-  }
-
-  // -----------------------------------------
-  // 数値パーサ
-  // -----------------------------------------
-
-  _parseNumber(raw) {
-    // 16進
-    if (raw.startsWith('0x') || raw.startsWith('0X')) {
-      return parseInt(raw.slice(2), 16);
-    }
-
-    // 2進
-    if (raw.startsWith('0b') || raw.startsWith('0B')) {
-      return parseInt(raw.slice(2), 2);
-    }
-
-    // 8進
-    if (raw.startsWith('0o') || raw.startsWith('0O')) {
-      return parseInt(raw.slice(2), 8);
-    }
-
-    // 10進
-    return parseInt(raw, 10);
+  encodeCommand(token) {
+    return this.strategy.encodeCommand(token);
   }
 }
