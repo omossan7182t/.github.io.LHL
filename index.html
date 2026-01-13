@@ -2,45 +2,71 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>LH Language Playground (Unofficial)</title>
-  <link rel="stylesheet" href="./style.css" />
+  <title>UiLang Playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="app-header__left">
-      <strong>Language: LH Language (Unofficial)</strong>
-    </div>
-    <div class="app-header__right">
-      <span id="mode-indicator">Mode: Normal</span>
-    </div>
+
+  <!-- =========================
+   * ヘッダー
+   * ========================= -->
+  <header>
+    <div class="header-left">UiLang Playground</div>
+    <div class="header-right">Minimal Esoteric VM</div>
   </header>
 
-  <main class="app-main">
-    <section class="panel panel--code">
-      <h2>Code</h2>
-      <textarea id="code-editor" rows="12"></textarea>
+  <!-- =========================
+   * メイン
+   * ========================= -->
+  <main>
+
+    <!-- 左：コード入力 & 表示 -->
+    <section>
+
+      <textarea id="code" placeholder="UiLang code here..."></textarea>
+
+      <div style="margin: 6px 0;">
+        <button id="btnRun">Run</button>
+        <button id="btnStep">Step</button>
+        <button id="btnReset">Reset</button>
+      </div>
+
+      <div id="codeView"></div>
+
+      <div id="errorBox"></div>
+
     </section>
 
-    <section class="panel panel--memory">
-      <h2>Memory</h2>
-      <div id="memory-grid"></div>
-      <div id="current-cell"></div>
+    <!-- 右：メモリ & ステータス -->
+    <section>
+
+      <div id="memoryPanel"></div>
+
+      <div id="statusBar"></div>
+
     </section>
 
-    <section class="panel panel--output">
-      <h2>Output</h2>
-      <pre id="output"></pre>
-    </section>
   </main>
 
-  <footer class="app-footer">
-    <small>
-      LH Language (Lose Lang) is an unofficial fan-made programming language.<br />
-      This project is not affiliated with any official works.<br />
-      Do not encode or decode content that violates public order or morality.
-    </small>
+  <!-- =========================
+   * フッター
+   * ========================= -->
+  <footer>
+    <div class="footer-note">
+      UiLang is a toy language for experimental VM design.
+    </div>
   </footer>
 
-  <script type="module" src="./main.js"></script>
+  <!-- =========================
+   * JavaScript
+   * ========================= -->
+
+  <script src="MState.js"></script>
+  <script src="statusBar.js"></script>
+  <script src="ui.js"></script>
+
 </body>
 </html>
