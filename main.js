@@ -1,161 +1,143 @@
+// main.js
+// アプリ全体のエントリポイント
+// UI 初期化 / Language 登録 / Run・Step 制御 / 各 Renderer 連携
+
 import { LanguageRegistry } from "./language/LanguageRegistry.js";
 import { NukuLanguage } from "./language/NukuLanguage.js";
-import { tokenizeNukuDialect } from "./tokenize/tokenizeNukuDialect.js";
-import { VMState } from "./vm/VMState.js";
 
-/**
- * =========================
- * Language registration
- * =========================
- */
+import { tokenizeNukuDialect } from "./tokenizer/tokenizeNukuDialect.js";
+import { VMState } from "./vm/VMState.js";
+import { ExecutionController } from "./controller/ExecutionController.js";
+
+import { renderCode } from "./renderer/codeRenderer.js";
+import { renderMemoryPanel } from "./renderer/memoryRenderer.js";
+import { renderStatusBar } from "./renderer/statusBarRenderer.js";
+import { renderErrorMessage } from "./renderer/errorRenderer.js";
+
+/* =========================
+ * DOM 取得
+ * ========================= */
+
+const codeTextarea = document.getElementById("code");
+const runButton = document.getElementById("runBtn");
+const stepButton = document.getElementById("stepBtn");
+
+const codeView = document.getElementById("codeView");
+const memoryPanel = document.getElementById("memoryPanel");
+const statusBar = document.getElementById("statusBar");
+const errorBox = document.getElementById("errorBox");
+
+/* =========================
+ * Language 初期化
+ * ========================= */
+
 LanguageRegistry.register(NukuLanguage);
 
-/**
- * =========================
- * DOM elements
- * =========================
- */
-const editor = document.getElementById("code-editor");
-const output = document.getElementById("output");
-const memoryGrid = document.getElementById("memory-grid");
-const modeIndicator = document.getElementById("mode-indicator");
+// 現状は固定（将来プルダウン対応）
+let currentLanguageId = "nuku";
 
-/**
- * =========================
- * State
- * =========================
- */
-let vm = null;
-let runState = "IDLE"; // IDLE | RUNNING | END | ERROR
+/* =========================
+ * Controller
+ * ========================= */
 
-/**
- * =========================
- * Initial state
- * =========================
- */
-editor.value = "";
-output.textContent = "";
-modeIndicator.textContent = "Mode: Normal";
+let controller = null;
 
-/**
- * =========================
- * Memory rendering
- * =========================
- */
-function renderMemory(vm) {
-  memoryGrid.innerHTML = "";
+/* =========================
+ * 初期ロード
+ * ========================= */
 
-  // 最初の 80 メモリ（16 × 5）
-  for (let i = 0; i < 80; i++) {
-    const cell = document.createElement("div");
-    cell.className = "memory-cell";
+initialize();
 
-    if (i === vm.ptr) {
-      cell.classList.add("memory-cell--active");
-    }
+function initialize() {
+  const src = codeTextarea.value || "";
+  rebuildController(src);
+  renderAll();
+}
 
-    const value = vm.memory[i];
-    cell.textContent = `${i}:${value}`;
+/* =========================
+ * Controller 再構築
+ * ========================= */
 
-    memoryGrid.appendChild(cell);
+function rebuildController(src) {
+  try {
+    const tokenizeResult = tokenizeNukuDialect(src, currentLanguageId);
+    const vm = VMState.fromTokenizeResult(tokenizeResult);
+    controller = new ExecutionController(vm);
+  } catch (err) {
+    controller = null;
+    renderErrorMessage({
+      container: errorBox,
+      stopReason: "ERROR",
+      error: err,
+    });
   }
 }
 
-/**
- * =========================
- * Output helper
- * =========================
- */
-function appendOutput(ch) {
-  output.textContent += ch;
+/* =========================
+ * Run / Step
+ * ========================= */
+
+runButton.addEventListener("click", () => {
+  if (!controller) return;
+
+  controller.run(() => {
+    renderAll();
+  });
+});
+
+stepButton.addEventListener("click", () => {
+  if (!controller) return;
+
+  controller.step();
+  renderAll();
+});
+
+/* =========================
+ * レンダリング統合
+ * ========================= */
+
+function renderAll() {
+  if (!controller) return;
+
+  const execState = controller.getExecutionState();
+  const vm = execState.vm;
+
+  renderCode({
+    container: codeView,
+    source: codeTextarea.value,
+    tokens: vm.tokens,
+    ip: vm.ip,
+    breakpoints: execState.breakpoints,
+    stopReason: execState.stopReason,
+    errorIp: execState.errorIp,
+  });
+
+  renderMemoryPanel({
+    container: memoryPanel,
+    memoryViewModel: vm.getMemoryViewModel(),
+    ptr: vm.ptr,
+  });
+
+  renderStatusBar({
+    container: statusBar,
+    stopReason: execState.stopReason,
+    ip: vm.ip,
+    ptr: vm.ptr,
+    pendingCount: vm.pendingCount,
+  });
+
+  renderErrorMessage({
+    container: errorBox,
+    stopReason: execState.stopReason,
+    error: execState.error,
+  });
 }
 
-/**
- * =========================
- * Run execution
- * =========================
- */
-window.run = () => {
-  output.textContent = "";
-  modeIndicator.textContent = "Mode: Run";
+/* =========================
+ * コード編集時
+ * ========================= */
 
-  const result = tokenizeNukuDialect(editor.value);
-
-  if (result.error) {
-    runState = "ERROR";
-    modeIndicator.textContent = "Mode: Error";
-    alert(
-      `ERROR: ${result.error.message}\n` +
-      `at instruction ip=${result.error.ip}`
-    );
-    return;
-  }
-
-  vm = new VMState(result.tokens);
-  runState = "RUNNING";
-
-  while (runState === "RUNNING") {
-    const stepResult = vm.step();
-
-    if (stepResult.state === "RUNNING") {
-      continue;
-    }
-
-    if (stepResult.state === "END") {
-      runState = "END";
-      modeIndicator.textContent = "Mode: End";
-      break;
-    }
-
-    if (stepResult.state === "ERROR") {
-      runState = "ERROR";
-      modeIndicator.textContent = "Mode: Error";
-      alert(
-        `RUNTIME ERROR: ${stepResult.message}\n` +
-        `at instruction ip=${stepResult.ip}`
-      );
-      break;
-    }
-  }
-
-  renderMemory(vm);
-};
-
-/**
- * =========================
- * Step execution (for future UI)
- * =========================
- */
-window.step = () => {
-  if (!vm) {
-    const result = tokenizeNukuDialect(editor.value);
-    if (result.error) {
-      alert(
-        `ERROR: ${result.error.message}\n` +
-        `at instruction ip=${result.error.ip}`
-      );
-      return;
-    }
-    vm = new VMState(result.tokens);
-    runState = "RUNNING";
-    modeIndicator.textContent = "Mode: Step";
-  }
-
-  const stepResult = vm.step();
-
-  if (stepResult.state === "END") {
-    runState = "END";
-    modeIndicator.textContent = "Mode: End";
-  }
-
-  if (stepResult.state === "ERROR") {
-    runState = "ERROR";
-    modeIndicator.textContent = "Mode: Error";
-    alert(
-      `RUNTIME ERROR: ${stepResult.message}\n` +
-      `at instruction ip=${stepResult.ip}`
-    );
-  }
-
-  renderMemory(vm);
-};
+codeTextarea.addEventListener("input", () => {
+  rebuildController(codeTextarea.value);
+  renderAll();
+});
