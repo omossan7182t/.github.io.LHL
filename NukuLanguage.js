@@ -10,9 +10,5 @@ export const NukuLanguage = {
     ",": { op: "INPUT" },
     "[": { op: "LOOP_START" },
     "]": { op: "LOOP_END" }
-  },
-  samples: {
-    helloWorld: `ぬくぬくぬく ぬくく ぬくぬくっ`,
-    demoLoop: `ぬくぬく ぬくっ ぬくぬくぬく`
   }
 };
