@@ -12,13 +12,8 @@ export class LanguageRegistry {
     return lang;
   }
 
-  static getAll() {
-    return Array.from(this.languages.values());
-  }
-
   static validate(lang) {
     if (!lang.id) throw new Error("language.id is required");
-    if (!lang.name) throw new Error("language.name is required");
     if (!lang.commands) throw new Error("language.commands is required");
   }
 }
