@@ -7,32 +7,23 @@ export function tokenizeNukuDialect(src, langId = "nuku") {
   for (const ch of src) {
     const cmd = lang.commands[ch];
     if (!cmd) continue;
-
-    tokens.push({
-      op: cmd.op,
-      delta: cmd.delta,
-      char: ch
-    });
+    tokens.push({ op: cmd.op, delta: cmd.delta });
   }
 
   // ジャンプテーブル構築
   const loopStack = [];
-  tokens.forEach((tok, i) => {
-    if (tok.op === "LOOP_START") loopStack.push(i);
-    if (tok.op === "LOOP_END") {
-      if (loopStack.length === 0) {
-        tok.error = "unmatched loop";
-      } else {
-        const start = loopStack.pop();
-        tok.jump = start;
-        tokens[start].jump = i;
+  tokens.forEach((token, idx) => {
+    if (token.op === "LOOP_START") loopStack.push(idx);
+    if (token.op === "LOOP_END") {
+      if (loopStack.length === 0) token.jump = null; // ERROR later
+      else {
+        const startIdx = loopStack.pop();
+        token.jump = startIdx;
+        tokens[startIdx].jump = idx;
       }
     }
   });
-
-  if (loopStack.length > 0) {
-    loopStack.forEach(i => (tokens[i].error = "unmatched loop"));
-  }
+  if (loopStack.length > 0) throw new Error("Unmatched loop");
 
   return tokens;
 }
