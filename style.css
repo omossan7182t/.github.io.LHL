@@ -1,62 +1,209 @@
-:root {
-  --color-bg: #f8f8f8;
-  --color-panel: #ffffff;
-  --color-border: #ccc;
-  --color-accent: #ff8fa3;
-  --color-error: #ff4d4d;
-}
+/* =========================
+ * 全体レイアウト
+ * ========================= */
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  padding: 0;
+  font-family: sans-serif;
+  background: #111;
+  color: #eee;
 }
 
-.app-header,
-.app-footer {
+header,
+footer {
   padding: 8px 12px;
-  background: var(--color-panel);
-  border-bottom: 1px solid var(--color-border);
+  background: #1b1b1b;
+  border-bottom: 1px solid #333;
 }
 
-.app-header {
-  display: flex;
-  justify-content: space-between;
+footer {
+  border-top: 1px solid #333;
+  border-bottom: none;
+  font-size: 12px;
+  color: #aaa;
 }
 
-.app-main {
+main {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
+  grid-template-columns: 1fr 420px;
   gap: 12px;
   padding: 12px;
 }
 
-.panel {
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
+/* =========================
+ * ボタン類
+ * ========================= */
+
+button {
+  background: #2a2a2a;
+  color: #eee;
+  border: 1px solid #444;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #333;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =========================
+ * コード入力
+ * ========================= */
+
+textarea#code {
+  width: 100%;
+  height: 180px;
+  background: #0e0e0e;
+  color: #eee;
+  border: 1px solid #333;
   padding: 8px;
+  box-sizing: border-box;
+  font-family: monospace;
 }
 
-.panel--code {
-  grid-column: 1 / 3;
+/* =========================
+ * コード表示（renderCode）
+ * ========================= */
+
+#codeView {
+  background: #0c0c0c;
+  border: 1px solid #333;
+  padding: 4px 0;
+  font-family: monospace;
+  font-size: 14px;
 }
 
-#memory-grid {
+.code-line {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  line-height: 1.5;
+}
+
+.code-gutter {
+  width: 24px;
+  text-align: center;
+  color: #666;
+  cursor: pointer;
+  user-select: none;
+}
+
+.code-text {
+  white-space: pre;
+  flex: 1;
+}
+
+/* IP 実行中行 */
+.code-line.is-ip {
+  background: #1e2a38;
+}
+
+/* ERROR 停止行 */
+.code-line.is-error {
+  background: #3a1e1e;
+}
+
+/* =========================
+ * メモリパネル
+ * ========================= */
+
+#memoryPanel {
+  background: #0c0c0c;
+  border: 1px solid #333;
+  padding: 6px;
+}
+
+.memory-grid {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   gap: 4px;
 }
 
 .memory-cell {
-  border: 1px solid var(--color-border);
-  padding: 2px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  padding: 4px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.memory-cell.is-active {
+  border-color: #4da3ff;
+  background: #16283d;
+}
+
+.memory-index {
+  color: #888;
+  font-size: 10px;
+}
+
+.memory-value {
+  font-weight: bold;
+}
+
+.memory-char {
+  color: #ccc;
+}
+
+/* =========================
+ * ステータスバー
+ * ========================= */
+
+#statusBar {
+  margin-top: 8px;
+}
+
+.status-bar {
+  display: flex;
+  gap: 16px;
+  padding: 6px 10px;
+  background: #1b1b1b;
+  border: 1px solid #333;
+  font-size: 13px;
+}
+
+.status-item {
+  white-space: nowrap;
+}
+
+.status-stop-reason {
+  font-weight: bold;
+}
+
+/* =========================
+ * エラー表示
+ * ========================= */
+
+#errorBox {
+  margin-top: 8px;
+  color: #ff7777;
+  font-size: 13px;
+}
+
+/* =========================
+ * ヘッダー表示用
+ * ========================= */
+
+.header-left {
+  font-weight: bold;
+}
+
+.header-right {
   font-size: 12px;
+  color: #aaa;
 }
 
-.memory-cell--active {
-  background: var(--color-accent);
-}
+/* =========================
+ * フッター免責表示
+ * ========================= */
 
-#error {
-  color: var(--color-error);
+.footer-note {
+  font-size: 11px;
+  color: #888;
 }
