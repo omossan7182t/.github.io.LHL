@@ -1,58 +1,43 @@
-/**
- * Encoder
- *
- * AST（token 配列）を target language 向け文字列に変換する
- *
- * 前提：
- * - number literal は token.type === "number"
- * - command は token.type === "command"
- * - negative number は未対応（MVP）
- */
+// Encoder.js
+// tokenize 結果を VM 実行用トークン列に変換する
+// - number literal を 1 トークンとして保持
+// - VM 側では op と value を見るだけで実行可能
 
 export class Encoder {
-  constructor(strategy) {
-    this.strategy = strategy;
-  }
-
   /**
-   * @param {Array} tokens
-   * @returns {string}
+   * @param {Array} tokenizeResult.tokens
+   * @returns {Array} encoded tokens
    */
-  encode(tokens) {
-    let out = "";
+  static encode(tokenizeResult) {
+    const { tokens } = tokenizeResult;
+    const encoded = [];
 
     for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
+      const t = tokens[i];
 
-      switch (token.type) {
-        case "number":
-          out += this.encodeNumber(token.value);
+      switch (t.type) {
+        case "COMMAND":
+          encoded.push({
+            op: t.op,
+            delta: t.delta,
+            ip: t.ip,
+          });
           break;
 
-        case "command":
-          out += this.encodeCommand(token);
+        case "NUMBER":
+          encoded.push({
+            op: "NUMBER",
+            value: t.value,
+            ip: t.ip,
+          });
           break;
 
         default:
-          throw new Error(`Unknown token type: ${token.type}`);
+          // 将来拡張用（今は来ない）
+          throw new Error(`Unknown token type: ${t.type}`);
       }
     }
 
-    return out;
-  }
-
-  encodeNumber(value) {
-    if (!Number.isInteger(value)) {
-      throw new Error(`number literal must be integer: ${value}`);
-    }
-    if (value < 0) {
-      throw new Error(`negative number is not supported: ${value}`);
-    }
-
-    return this.strategy.encodeNumber(value);
-  }
-
-  encodeCommand(token) {
-    return this.strategy.encodeCommand(token);
+    return encoded;
   }
 }
