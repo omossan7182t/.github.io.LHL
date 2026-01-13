@@ -1,71 +1,64 @@
-// renderCode.js
+// renderer/codeRenderer.js
+// ソースコード表示 + IP / BP / ERROR ハイライト
 
-/**
- * @param {Object} params
- * @param {Array}  params.tokens        VM の tokens
- * @param {number} params.ip            現在の IP
- * @param {Set}    params.breakpoints   breakpoint の IP set
- * @param {string} params.stopReason    STOP_REASON
- * @param {number|null} params.errorIp  error 停止位置
- */
 export function renderCode({
+  container,
+  source,
   tokens,
   ip,
   breakpoints,
   stopReason,
   errorIp,
 }) {
-  const container = document.getElementById("code-view");
   container.innerHTML = "";
 
-  tokens.forEach((token, index) => {
-    const line = document.createElement("div");
-    line.className = "code-line";
-    line.dataset.ip = index;
+  const lines = source.split("\n");
 
-    // --- GUTTER ---
+  lines.forEach((lineText, lineIndex) => {
+    const lineEl = document.createElement("div");
+    lineEl.className = "code-line";
+
+    /* =========================
+     * ガター（BP / 行番号）
+     * ========================= */
+
     const gutter = document.createElement("span");
     gutter.className = "code-gutter";
 
-    if (breakpoints.has(index)) {
-      gutter.textContent = "●";
-      gutter.classList.add("bp");
-    } else {
-      gutter.textContent = "○";
-    }
+    const bpEnabled = breakpoints?.has(lineIndex);
+    gutter.textContent = bpEnabled ? "●" : "○";
+    gutter.dataset.line = lineIndex;
 
-    // --- CODE ---
+    lineEl.appendChild(gutter);
+
+    /* =========================
+     * コード本体
+     * ========================= */
+
     const code = document.createElement("span");
-    code.className = "code-token";
-    code.textContent = formatToken(token);
+    code.className = "code-text";
+    code.textContent = lineText || " ";
 
-    // --- IP highlight ---
-    if (index === ip) {
-      line.classList.add("current-ip");
+    lineEl.appendChild(code);
+
+    /* =========================
+     * ハイライト判定
+     * ========================= */
+
+    const tokenAtLine = tokens.find(
+      (t) => t.sourceLine === lineIndex
+    );
+
+    if (tokenAtLine) {
+      if (tokenAtLine.ip === ip) {
+        lineEl.classList.add("is-ip");
+      }
+
+      if (stopReason === "ERROR" && tokenAtLine.ip === errorIp) {
+        lineEl.classList.add("is-error");
+      }
     }
 
-    // --- ERROR highlight ---
-    if (stopReason === "ERROR" && index === errorIp) {
-      line.classList.add("error-line");
-    }
-
-    // --- BP stop highlight ---
-    if (stopReason === "BP" && index === ip) {
-      line.classList.add("bp-stop");
-    }
-
-    line.appendChild(gutter);
-    line.appendChild(code);
-    container.appendChild(line);
+    container.appendChild(lineEl);
   });
-}
-
-/**
- * Token 表示用（最小）
- */
-function formatToken(token) {
-  if (token.type === "number") {
-    return `[${token.value}]`;
-  }
-  return token.op;
 }
