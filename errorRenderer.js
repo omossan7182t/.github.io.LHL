@@ -1,39 +1,49 @@
-function renderErrorMessage(vmState) {
-  let panel = document.getElementById('error-panel');
+// errorRenderer.js
+// 実行時 ERROR を UI に描画する簡易レンダラ
+// ・ERROR 停止時のみ表示
+// ・STOP_REASON が ERROR 以外なら非表示
+// ・詳細なエラー分類やコード化は行わない（仕様通り）
 
-  // 初回のみ生成
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'error-panel';
-    panel.style.marginTop = '8px';
-    panel.style.padding = '8px';
-    panel.style.border = '1px solid #c00';
-    panel.style.background = '#200';
-    panel.style.color = '#f66';
-    panel.style.fontSize = '12px';
-    panel.style.whiteSpace = 'pre-wrap';
-    document.body.appendChild(panel);
-  }
+export function renderErrorMessage({
+  container,
+  stopReason,
+  error,
+}) {
+  if (!container) return;
 
-  // ERROR でなければ非表示
-  if (vmState.stopReason !== STOP_REASON.ERROR || !vmState.error) {
-    panel.style.display = 'none';
-    panel.textContent = '';
+  // ERROR 以外では何も表示しない
+  if (stopReason !== "ERROR" || !error) {
+    container.textContent = "";
+    container.style.display = "none";
     return;
   }
 
-  panel.style.display = 'block';
+  container.style.display = "block";
+  container.textContent = buildMessage(error);
+}
 
-  const msg = [];
-  msg.push('ERROR');
+function buildMessage(error) {
+  // error は VM 側 or tokenize 側で生成されたオブジェクトを想定
+  // 想定構造：
+  // {
+  //   message: string,
+  //   ip?: number,
+  //   token?: object
+  // }
 
-  if (typeof vmState.error.ip === 'number') {
-    msg.push(`IP: ${vmState.error.ip}`);
+  if (typeof error === "string") {
+    return `ERROR: ${error}`;
   }
 
-  if (vmState.error.message) {
-    msg.push(vmState.error.message);
+  if (!error || !error.message) {
+    return "ERROR: Unknown error";
   }
 
-  panel.textContent = msg.join('\n');
+  let msg = `ERROR: ${error.message}`;
+
+  if (typeof error.ip === "number") {
+    msg += ` (IP: ${error.ip})`;
+  }
+
+  return msg;
 }
