@@ -2,146 +2,33 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>LH Language (ぬく方言) - MVP</title>
+  <title>LH Language (Unofficial)</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- ヘッダー -->
-  <header class="header">
-    <span>Language: LH Language (Unofficial)</span>
-    <span id="debug-mode">Debug OFF</span>
+  <header>
+    <span id="languageLabel">Language: LH Language (Unofficial)</span>
+    <span id="debugLabel">Debug / Mode</span>
   </header>
 
-  <!-- コントロールパネル -->
-  <div class="controls">
-    <label for="language-select">Language:</label>
-    <select id="language-select"></select>
-
-    <label for="sample-select">Sample:</label>
-    <select id="sample-select"></select>
-
-    <button id="run-btn">Run</button>
-    <button id="step-btn">Step</button>
-
-    <span id="run-tooltip" class="tooltip">
-      Warning: medium severity. 詳細は Debug モードで表示
-    </span>
+  <select id="langSelect"></select>
+  <select id="sampleSelect"></select>
+  <textarea id="codeInput" rows="10" cols="60"></textarea>
+  
+  <div>
+    <button id="runBtn">Run</button>
+    <button id="stepBtn">Step</button>
   </div>
 
-  <!-- コードパネル -->
-  <div class="code-panel">
-    <textarea id="code-editor" rows="10" cols="60"></textarea>
-  </div>
+  <div id="statusBar"></div>
+  <div id="memoryPanel" class="memory-panel"></div>
+  <div id="currentCell" class="current-cell"></div>
+  <div id="vmOutput"></div>
 
-  <!-- テキスト ↔ LH Language エンコードデコード -->
-  <div class="text-panel">
-    <textarea id="text-editor" rows="3" cols="60" placeholder="テキスト ↔ LH Language 可逆テスト"></textarea>
-    <button id="encode-btn">Encode → LH Language</button>
-    <button id="decode-btn">Decode → Text</button>
-  </div>
-
-  <!-- メモリパネル -->
-  <div class="memory-panel">
-    <div class="memory-grid"></div>
-  </div>
-
-  <!-- 現在操作中セル -->
-  <div class="current-memory-panel">
-    現在操作中セル: <span id="current-cell"></span>
-  </div>
-
-  <!-- ステータスバー -->
-  <div class="status-bar"></div>
-
-  <!-- スクリプト -->
-  <script type="module">
-    import { LanguageRegistry } from "./language/LanguageRegistry.js";
-    import { NukuLanguage } from "./language/NukuLanguage.js";
-    import { tokenizeNukuDialect } from "./language/tokenizeNukuDialect.js";
-    import { VMState } from "./VMState.js";
-    import { ExecutionController } from "./controller.js";
-
-    // 言語登録
-    LanguageRegistry.register(NukuLanguage);
-
-    // DOM 要素
-    const codeEditor = document.getElementById("code-editor");
-    const textEditor = document.getElementById("text-editor");
-    const languageSelect = document.getElementById("language-select");
-    const sampleSelect = document.getElementById("sample-select");
-    const runBtn = document.getElementById("run-btn");
-    const stepBtn = document.getElementById("step-btn");
-    const currentCellSpan = document.getElementById("current-cell");
-    const statusBar = document.querySelector(".status-bar");
-    const memoryGrid = document.querySelector(".memory-grid");
-
-    // 言語セレクト初期化
-    LanguageRegistry.getAll().forEach(lang => {
-      const option = document.createElement("option");
-      option.value = lang.id;
-      option.textContent = lang.name;
-      languageSelect.appendChild(option);
-    });
-
-    // サンプルロード
-    function loadSample(langId, sampleId) {
-      const lang = LanguageRegistry.get(langId);
-      if (!lang.samples[sampleId]) return;
-      codeEditor.value = lang.samples[sampleId];
-    }
-
-    // VM & Controller 初期化
-    let vm = new VMState();
-    let controller = new ExecutionController(vm);
-
-    // レンダリング
-    function render() {
-      // メモリ描画
-      memoryGrid.innerHTML = "";
-      vm.getMemoryViewModel().forEach(cell => {
-        const div = document.createElement("div");
-        div.textContent = cell.char || cell.value;
-        div.className = "memory-cell";
-        if (vm.ptr === cell.index) div.classList.add("current-cell");
-        memoryGrid.appendChild(div);
-      });
-
-      // 現在セル表示
-      currentCellSpan.textContent = `${vm.ptr} (${vm.memory[vm.ptr]})`;
-
-      // ステータスバー
-      statusBar.textContent = `IP: ${vm.ip} | pending: ${vm.pendingCount} | STOP: ${controller.stopReason}`;
-    }
-
-    // Run / Step イベント
-    runBtn.addEventListener("click", () => {
-      let status;
-      while ((status = vm.step()) === "RUNNING") {}
-      controller.stopReason = status;
-      render();
-    });
-
-    stepBtn.addEventListener("click", () => {
-      controller.step();
-      render();
-    });
-
-    // Encode / Decode
-    document.getElementById("encode-btn").addEventListener("click", () => {
-      const text = textEditor.value;
-      // TODO: Encoder 実装
-      console.log("Encode:", text);
-    });
-    document.getElementById("decode-btn").addEventListener("click", () => {
-      const code = codeEditor.value;
-      // TODO: Decoder 実装
-      console.log("Decode:", code);
-    });
-
-    // 初期サンプルロード
-    languageSelect.value = "nuku";
-    loadSample("nuku", "helloWorld");
-    render();
-  </script>
+  <script src="LanguageRegistry.js"></script>
+  <script src="NukuLanguage.js"></script>
+  <script src="tokenizeNukuDialect.js"></script>
+  <script src="VMState.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
