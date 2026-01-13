@@ -2,71 +2,68 @@
 // VMState を制御し、Run / Step / BP / ERROR / END を統合管理する
 
 class ExecutionController {
-  constructor(vmState, options = {}) {
-    this.vm = vmState;
+  constructor({
+    source,
+    codeViewEl,
+    memoryViewEl,
+    statusBarEl,
+    errorPanelEl,
+  }) {
+    this.source = source;
+
+    // DOM
+    this.codeViewEl = codeViewEl;
+    this.memoryViewEl = memoryViewEl;
+    this.statusBarEl = statusBarEl;
+    this.errorPanelEl = errorPanelEl;
+
+    // VM
+    this.vm = null;
 
     // 実行状態
     this.stopReason = "END"; // RUN | STEP | BP | ERROR | END
     this.running = false;
 
-    // ブレークポイント
+    // BP
     this.breakpoints = new Set();
-
-    // Run 再開時に最初の BP を 1 回無視するオプション
     this.ignoreFirstBp = false;
 
-    // エラー情報
+    // エラー
     this.error = null;
-
-    // 実行履歴（直前命令）
     this.lastExecutedIp = null;
-
-    // 描画フック
-    this.onUpdate = options.onUpdate || (() => {});
   }
 
   /* ==========
-   * Breakpoint
+   * 初期化
    * ========== */
 
-  toggleBreakpoint(ip) {
-    if (this.breakpoints.has(ip)) {
-      this.breakpoints.delete(ip);
-    } else {
-      this.breakpoints.add(ip);
-    }
-    this.onUpdate();
-  }
+  reset() {
+    // tokenize → VMState 作成
+    const tokens = tokenizeNukuDialect(this.source);
+    this.vm = new VMState(tokens);
 
-  hasBreakpoint(ip) {
-    return this.breakpoints.has(ip);
-  }
-
-  /* ==========
-   * Control
-   * ========== */
-
-  reset(vmState) {
-    this.vm = vmState;
     this.stopReason = "END";
     this.running = false;
     this.error = null;
     this.lastExecutedIp = null;
-    this.onUpdate();
+
+    this.render();
   }
 
+  /* ==========
+   * 実行制御
+   * ========== */
+
   step() {
-    if (this.stopReason === "ERROR" || this.stopReason === "END") {
-      return;
-    }
+    if (!this.vm) return;
+    if (this.stopReason === "ERROR" || this.stopReason === "END") return;
 
     this.lastExecutedIp = this.vm.ip;
-
     const result = this.vm.step();
 
     if (result === "ERROR") {
       this.stopReason = "ERROR";
-      this.error = this.vm.error || { message: "Unknown VM error" };
+      this.error = this.vm.error || { message: "VM Error" };
       this.running = false;
     } else if (result === "END") {
       this.stopReason = "END";
@@ -75,11 +72,11 @@ class ExecutionController {
       this.stopReason = "STEP";
     }
 
-    this.onUpdate();
+    this.render();
   }
 
   run() {
-    if (this.running) return;
+    if (!this.vm || this.running) return;
 
     this.running = true;
     this.stopReason = "RUN";
@@ -87,68 +84,63 @@ class ExecutionController {
     const loop = () => {
       if (!this.running) return;
 
-      // BP 判定（実行前）
-      if (this.hasBreakpoint(this.vm.ip)) {
+      // BP
+      if (this.breakpoints.has(this.vm.ip)) {
         if (this.ignoreFirstBp) {
           this.ignoreFirstBp = false;
         } else {
           this.stopReason = "BP";
           this.running = false;
-          this.onUpdate();
+          this.render();
           return;
         }
       }
 
       this.lastExecutedIp = this.vm.ip;
-
       const result = this.vm.step();
 
       if (result === "ERROR") {
         this.stopReason = "ERROR";
-        this.error = this.vm.error || { message: "Unknown VM error" };
+        this.error = this.vm.error || { message: "VM Error" };
         this.running = false;
-        this.onUpdate();
+        this.render();
         return;
       }
 
       if (result === "END") {
         this.stopReason = "END";
         this.running = false;
-        this.onUpdate();
+        this.render();
         return;
       }
 
-      // 継続
-      this.onUpdate();
+      this.render();
       requestAnimationFrame(loop);
     };
 
     requestAnimationFrame(loop);
   }
 
-  stop() {
-    this.running = false;
-    this.onUpdate();
-  }
-
-  runIgnoreFirstBreakpoint() {
-    this.ignoreFirstBp = true;
-    this.run();
-  }
-
   /* ==========
-   * View helpers
+   * 描画
    * ========== */
 
-  getStatus() {
-    return {
+  render() {
+    renderCode(this.codeViewEl, this.vm, {
+      breakpoints: this.breakpoints,
+      errorIp: this.stopReason === "ERROR" ? this.vm.ip : null,
+    });
+
+    renderMemoryPanel(this.memoryViewEl, this.vm);
+    renderStatusBar(this.statusBarEl, {
       stopReason: this.stopReason,
       ip: this.vm.ip,
       ptr: this.vm.ptr,
       pendingCount: this.vm.pendingCount ?? 0,
-      running: this.running,
-    };
+    });
+
+    renderErrorMessage(this.errorPanelEl, this.error);
   }
 }
 
-window.ExecutionController =ExecutionController;
+window.ExecutionController = ExecutionController;
