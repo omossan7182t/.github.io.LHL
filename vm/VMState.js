@@ -1,165 +1,130 @@
+// VMState.js
+// Brainfuck 系 VM + number literal 対応（LH Language 共通 VM）
+
 /**
  * Token 型（前提）
- *
- * command:
- * { type: "command", op: string, delta?: number }
- *
- * number:
- * { type: "number", value: number }
+ * - { type: "command", op: string, delta?: number, jump?: number }
+ * - { type: "number", value: number }
  */
 
 export class VMState {
-  constructor(tokens, jumpTable = {}) {
+  constructor(tokens) {
     this.tokens = tokens;
 
-    this.jumpTable = jumpTable;
-
-    this.memory = new Uint8Array(30000);
+    // メモリ
+    this.memory = new Uint32Array(30000);
     this.ptr = 0;
+
+    // 実行位置
     this.ip = 0;
 
     // number literal 用
-    this.pendingCount = 0;
+    this.operandStack = [];
 
-    // error handling
-    this.error = null;
+    // デバッグ用
     this.errorIp = null;
   }
 
   /**
-   * 1 step 実行
-   *
-   * @returns {"RUNNING"|"END"|"ERROR"}
+   * step 実行
+   * @returns {"RUNNING" | "END" | "ERROR"}
    */
   step() {
-    if (this.ip >= this.tokens.length) {
+    const token = this.tokens[this.ip];
+
+    // --- END ---
+    if (!token) {
       return "END";
     }
 
-    const token = this.tokens[this.ip];
+    // --- NUMBER ---
+    if (token.type === "number") {
+      this.operandStack.push(token.value);
+      this.ip++;
+      return "RUNNING";
+    }
 
+    // --- COMMAND ---
     try {
-      if (token.type === "number") {
-        this.pendingCount += token.value;
-        this.ip++;
-        return "RUNNING";
-      }
-
-      if (token.type === "command") {
-        this.executeCommand(token);
-        return "RUNNING";
-      }
-
-      throw new Error(`Unknown token type: ${token.type}`);
+      this.execute(token);
     } catch (e) {
-      this.error = e;
       this.errorIp = this.ip;
+      console.error(e);
       return "ERROR";
     }
+
+    this.ip++;
+    return "RUNNING";
   }
 
-  executeCommand(token) {
+  /**
+   * 命令実行
+   * @param {object} token
+   */
+  execute(token) {
     switch (token.op) {
       case "ADD": {
-        const value = this.consumePendingOrDelta(token.delta);
-        this.memory[this.ptr] += value;
-        this.ip++;
+        const v = this._consumeOperand(1);
+        this.memory[this.ptr] += v;
         break;
       }
 
       case "MOVE": {
-        const value = this.consumePendingOrDelta(token.delta);
-        this.ptr += value;
+        const v = this._consumeOperand(1);
+        this.ptr += v;
         if (this.ptr < 0) this.ptr = 0;
         if (this.ptr >= this.memory.length) {
           this.ptr = this.memory.length - 1;
         }
-        this.ip++;
         break;
       }
 
       case "OUTPUT": {
-        console.log(String.fromCharCode(this.memory[this.ptr]));
-        this.ip++;
+        const cp = this.memory[this.ptr];
+        const ch = String.fromCodePoint(cp);
+        console.log(ch);
         break;
       }
 
       case "INPUT": {
-        // MVP では未実装（将来拡張）
-        this.ip++;
+        // MVP: 未実装（0 を入れる）
+        this.memory[this.ptr] = 0;
         break;
       }
 
       case "LOOP_START": {
         if (this.memory[this.ptr] === 0) {
-          const jumpTo = this.jumpTable[this.ip];
-          if (jumpTo === undefined) {
+          if (token.jump == null) {
             throw new Error("Unmatched LOOP_START");
           }
-          this.ip = jumpTo + 1;
-        } else {
-          this.ip++;
+          this.ip = token.jump;
         }
         break;
       }
 
       case "LOOP_END": {
         if (this.memory[this.ptr] !== 0) {
-          const jumpTo = this.jumpTable[this.ip];
-          if (jumpTo === undefined) {
+          if (token.jump == null) {
             throw new Error("Unmatched LOOP_END");
           }
-          this.ip = jumpTo;
-        } else {
-          this.ip++;
+          this.ip = token.jump;
         }
         break;
       }
 
       default:
-        throw new Error(`Unsupported op: ${token.op}`);
+        throw new Error(`Unknown op: ${token.op}`);
     }
-  }
-
-  consumePendingOrDelta(delta) {
-    if (this.pendingCount > 0) {
-      const v = this.pendingCount;
-      this.pendingCount = 0;
-      return v;
-    }
-    return delta ?? 0;
   }
 
   /**
-   * tokenize 結果から VMState を生成
-   * jumpTable をここで構築
+   * number literal 消費
+   * @param {number} defaultValue
    */
-  static fromTokenizeResult(tokens) {
-    const jumpTable = {};
-    const stack = [];
-
-    for (let i = 0; i < tokens.length; i++) {
-      const t = tokens[i];
-      if (t.type !== "command") continue;
-
-      if (t.op === "LOOP_START") {
-        stack.push(i);
-      } else if (t.op === "LOOP_END") {
-        if (stack.length === 0) {
-          // tokenize 時点で warning にしてもよいが、
-          // VM 実行時 ERROR としても扱える
-          throw new Error("Unmatched LOOP_END");
-        }
-        const start = stack.pop();
-        jumpTable[start] = i;
-        jumpTable[i] = start;
-      }
+  _consumeOperand(defaultValue) {
+    if (this.operandStack.length === 0) {
+      return defaultValue;
     }
-
-    if (stack.length > 0) {
-      throw new Error("Unmatched LOOP_START");
-    }
-
-    return new VMState(tokens, jumpTable);
+    return this.operandStack.pop();
   }
 }
