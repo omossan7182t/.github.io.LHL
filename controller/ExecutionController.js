@@ -1,7 +1,7 @@
 // ExecutionController.js
 // VMState を制御し、Run / Step / BP / ERROR / END を統合管理する
 
-export class ExecutionController {
+class ExecutionController {
   constructor(vmState, options = {}) {
     this.vm = vmState;
 
@@ -150,3 +150,5 @@ export class ExecutionController {
     };
   }
 }
+
+window.ExecutionController =ExecutionController;
