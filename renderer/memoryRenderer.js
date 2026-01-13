@@ -1,7 +1,7 @@
 // renderer/memoryRenderer.js
 // メモリパネル（5 × 16 グリッド）描画
 
-export function renderMemoryPanel({
+function renderMemoryPanel({
   container,
   memoryViewModel,
   ptr,
@@ -52,3 +52,5 @@ export function renderMemoryPanel({
 
   container.appendChild(grid);
 }
+
+window.renderMemoryPanel = renderMemoryPanel;
